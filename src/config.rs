@@ -1,8 +1,5 @@
 use serde::Deserialize;
-use std::{
-    env, fs, io,
-    path::PathBuf,
-};
+use std::{env, fs, io, path::PathBuf};
 use thiserror::Error;
 
 const CONFIG_PATH_VAR: &str = "OKNO_COMBINATOR_CONFIG";

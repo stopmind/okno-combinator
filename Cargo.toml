@@ -23,6 +23,10 @@ features = ["postgres"]
 version = "2.4.0"
 features = ["postgres"]
 
+[dependencies.tower-http]
+version = "0.7.1"
+features = ["cors"]
+
 [dependencies.tokio]
 version = "1.54.1"
 features = ["rt", "rt-multi-thread"]
