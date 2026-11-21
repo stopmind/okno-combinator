@@ -1,0 +1,36 @@
+[package]
+name = "okno-combinator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+thiserror = "2.0.21"
+log = "0.4.35"
+toml = "1.2.1"
+
+[dependencies.serde]
+version = "1.0.229"
+features = ["derive"]
+
+[dependencies.stop-log]
+git = "https://github.com/stopmind/stop-log"
+
+[dependencies.diesel_migrations]
+version = "2.4.0"
+features = ["postgres"]
+
+[dependencies.diesel]
+version = "2.4.0"
+features = ["postgres"]
+
+[dependencies.tokio]
+version = "1.54.1"
+features = ["rt", "rt-multi-thread"]
+
+[dependencies.axum]
+version = "0.8.9"
+features = ["tokio", "json"]
+
+[dependencies.reqwest]
+version = "0.13.5"
+features = ["json"]
