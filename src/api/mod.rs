@@ -1,14 +1,15 @@
-use crate::config::Config;
+use crate::{config::Config, db::Database};
 use axum::{
     Router,
     extract::Request,
     middleware,
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use log::{error, info};
-use std::{io, path::Path};
+use reqwest::StatusCode;
+use std::{error::Error as StdError, io, path::Path, sync::Arc};
 use tokio::{
     net::{TcpListener, UnixListener},
     select,
@@ -18,6 +19,32 @@ use tower_http::cors::CorsLayer;
 mod community;
 mod gamejams;
 mod submit;
+
+struct ApiContext {
+    db: Arc<Database>,
+}
+
+type ApiCtx = Arc<ApiContext>;
+
+pub struct ApiError(Box<dyn StdError>);
+
+impl<E> From<E> for ApiError
+where
+    E: StdError + 'static,
+{
+    fn from(value: E) -> Self {
+        ApiError(Box::new(value))
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        error!("error response: {}", self.0);
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
+type ApiResult<T = Response> = Result<T, ApiError>;
 
 #[cfg(debug_assertions)]
 async fn log_request(req: Request, next: Next) -> Response {
@@ -30,7 +57,7 @@ async fn log_request(req: Request, next: Next) -> Response {
 }
 
 #[rustfmt::skip]
-fn scheme() -> Router {
+fn scheme(ctx: Arc<ApiContext>) -> Router {
     let router = Router::new()
         .route("/submit", post(submit::submit))
         .route("/submissions", get(submit::get_submissions))
@@ -41,7 +68,7 @@ fn scheme() -> Router {
         .route("/submissions/{subid}/cover_horizontal", get(submit::get_submission_cover_horizontal))
         .route("/submissions/{subid}/cover_vertical", get(submit::get_submission_cover_vertical))
         .route("/tags", get(submit::get_tags))
-        .route("/tags/{tag}", get(submit::get_tag))
+        .route("/tags/{tag}", get(submit::get_submissions_with_tag))
         .route("/tags/categories", get(submit::get_tags_categories))
         .route("/tags/categories/{category}", get(submit::get_tags_category))
         .route("/tags/categories/notPanelOnly", get(submit::get_tags_categories_not_panel_only))
@@ -50,6 +77,7 @@ fn scheme() -> Router {
         .route("/community/content", get(community::get_all_community_content))
         .route("/community/content/{id}", get(community::get_community_content))
         .route("/community/content/{id}/cover", get(community::get_community_content_cover))
+        .with_state(ctx)
         .layer(CorsLayer::permissive());
 
     #[cfg(debug_assertions)]
@@ -66,8 +94,9 @@ fn open_unix_socket(path: &Path) -> io::Result<UnixListener> {
     UnixListener::bind(path)
 }
 
-pub async fn serve(config: &Config) {
-    let router = scheme();
+pub async fn serve(db: Arc<Database>, config: &Config) {
+    let ctx = Arc::new(ApiContext { db });
+    let router = scheme(ctx);
 
     let tcp = match TcpListener::bind(&config.listen_addr).await {
         Ok(listener) => listener,

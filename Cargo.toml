@@ -7,6 +7,11 @@ edition = "2024"
 thiserror = "2.0.21"
 log = "0.4.35"
 toml = "1.2.1"
+futures = "0.3.34"
+
+[dependencies.chrono]
+version = "0.4.45"
+features = ["serde"]
 
 [dependencies.serde]
 version = "1.0.229"
@@ -15,13 +20,16 @@ features = ["derive"]
 [dependencies.stop-log]
 git = "https://github.com/stopmind/stop-log"
 
-[dependencies.diesel_migrations]
-version = "2.4.0"
-features = ["postgres"]
-
-[dependencies.diesel]
-version = "2.4.0"
-features = ["postgres"]
+[dependencies.sqlx]
+version = "0.9.1"
+features = [
+    "postgres",
+    "migrate",
+    "macros",
+    "runtime-tokio",
+    "chrono",
+    "sqlx-toml"
+]
 
 [dependencies.tower-http]
 version = "0.7.1"
