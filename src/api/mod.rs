@@ -1,4 +1,7 @@
-use crate::{config::Config, db::Database};
+use crate::{
+    config::Config,
+    db::{Database, DbError},
+};
 use axum::{
     Router,
     extract::Request,
@@ -9,7 +12,8 @@ use axum::{
 };
 use log::{error, info};
 use reqwest::StatusCode;
-use std::{error::Error as StdError, io, path::Path, sync::Arc};
+use std::{io, path::Path, sync::Arc};
+use thiserror::Error;
 use tokio::{
     net::{TcpListener, UnixListener},
     select,
@@ -22,24 +26,26 @@ mod submit;
 
 struct ApiContext {
     db: Arc<Database>,
+    client: reqwest::Client,
 }
 
 type ApiCtx = Arc<ApiContext>;
 
-pub struct ApiError(Box<dyn StdError>);
-
-impl<E> From<E> for ApiError
-where
-    E: StdError + 'static,
-{
-    fn from(value: E) -> Self {
-        ApiError(Box::new(value))
-    }
+#[derive(Error, Debug)]
+pub enum ApiError {
+    #[error("db error: {0}")]
+    DbError(#[from] DbError),
+    #[error("request to third-party api failed: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("failed to parse url: {0}")]
+    UrlParseError(#[from] url::ParseError),
+    #[error("transparent")]
+    Other(String),
 }
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        error!("error response: {}", self.0);
+        error!("error response: {}", self);
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }
@@ -65,8 +71,8 @@ fn scheme(ctx: Arc<ApiContext>) -> Router {
         .route("/submissions/unverified/count",get(submit::get_unverified_submissions_count))
         .route("/submissions/{subid}", get(submit::get_submission))
         .route("/submissions/{subid}/reviews", get(submit::get_submission_reviews))
-        .route("/submissions/{subid}/cover_horizontal", get(submit::get_submission_cover_horizontal))
-        .route("/submissions/{subid}/cover_vertical", get(submit::get_submission_cover_vertical))
+        .route("/submissions/{subid}/cover_horizontal", get(submit::get_submission_cover))
+        .route("/submissions/{subid}/cover_vertical", get(submit::get_submission_cover))
         .route("/tags", get(submit::get_tags))
         .route("/tags/{tag}", get(submit::get_submissions_with_tag))
         .route("/tags/categories", get(submit::get_tags_categories))
@@ -95,7 +101,10 @@ fn open_unix_socket(path: &Path) -> io::Result<UnixListener> {
 }
 
 pub async fn serve(db: Arc<Database>, config: &Config) {
-    let ctx = Arc::new(ApiContext { db });
+    let ctx = Arc::new(ApiContext {
+        db,
+        client: reqwest::Client::new(),
+    });
     let router = scheme(ctx);
 
     let tcp = match TcpListener::bind(&config.listen_addr).await {

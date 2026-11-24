@@ -14,7 +14,7 @@ pub enum DbConnectionError {
 
 #[derive(Debug, Error)]
 pub enum DbError {
-    #[error("database: {0}")]
+    #[error(transparent)]
     DatabaseError(#[from] sqlx::Error),
 }
 
