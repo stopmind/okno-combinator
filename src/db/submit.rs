@@ -37,17 +37,17 @@ pub struct Review {
 
 #[derive(Debug, Serialize)]
 pub struct Tag {
-    tag: String,
-    category: String,
+    pub tag: String,
+    pub category: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TagCategory {
     #[serde(rename = "category")]
-    title: String,
-    panel_only: bool,
-    order: i32,
+    pub title: String,
+    pub panel_only: bool,
+    pub order: i32,
 }
 
 impl Database {

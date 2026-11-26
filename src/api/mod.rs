@@ -20,9 +20,9 @@ use tokio::{
 };
 use tower_http::cors::CorsLayer;
 
-mod community;
 mod gamejams;
 mod submit;
+mod utils;
 
 struct ApiContext {
     db: Arc<Database>,
@@ -80,9 +80,9 @@ fn scheme(ctx: Arc<ApiContext>) -> Router {
         .route("/tags/categories/notPanelOnly", get(submit::get_tags_categories_not_panel_only))
         .route("/gamejams", get(gamejams::get_gamejams))
         .route("/gamejams/{id}/cover", get(gamejams::get_gamejam_cover))
-        .route("/community/content", get(community::get_all_community_content))
-        .route("/community/content/{id}", get(community::get_community_content))
-        .route("/community/content/{id}/cover", get(community::get_community_content_cover))
+        .route("/community/content", get(gamejams::get_all_community_content))
+        .route("/community/content/{id}", get(gamejams::get_community_content))
+        .route("/community/content/{id}/cover", get(gamejams::get_community_content_cover))
         .with_state(ctx)
         .layer(CorsLayer::permissive());
 

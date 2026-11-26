@@ -1,17 +1,15 @@
 use crate::{
-    api::{ApiContext, ApiCtx, ApiError, ApiResult},
+    api::{ApiContext, ApiCtx, ApiError, ApiResult, utils},
     db::{DbResult, Submission, SubmissionStatus},
 };
 use axum::{
     Json,
-    body::Body,
     extract::{Path, State},
-    http::{Response, StatusCode},
+    http::StatusCode,
     response::IntoResponse,
 };
 use futures::{StreamExt, TryStreamExt, stream};
 use reqwest::Client;
-use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -203,24 +201,7 @@ async fn get_cover_url_from_url(client: &Client, url: Url) -> ApiResult<Url> {
         return Ok(data.cover_image);
     }
 
-    let content = client
-        .get(url.clone())
-        .send()
-        .await?
-        .error_for_status()?
-        .text()
-        .await?;
-    let dom = Html::parse_document(content.as_str());
-    let selector = Selector::parse("meta[property=\"og:image\"]").unwrap();
-
-    let options = Url::options().base_url(Some(&url));
-
-    let cover_url = dom
-        .select(&selector)
-        .filter_map(|element| options.parse(element.attr("content")?).ok())
-        .next();
-
-    cover_url.ok_or_else(|| ApiError::Other(format!("can't get cover for url: {url}")))
+    utils::get_cover_url_from_meta(client, url).await
 }
 
 async fn get_cover_for_submission(ctx: &ApiContext, sub_id: i32) -> ApiResult {
@@ -228,13 +209,5 @@ async fn get_cover_for_submission(ctx: &ApiContext, sub_id: i32) -> ApiResult {
     let url = Url::parse(&sub.link)?;
     let cover_url = get_cover_url_from_url(&ctx.client, url).await?;
 
-    let cover_response = ctx.client.get(cover_url).send().await?.error_for_status()?;
-
-    let mut response_builder = Response::builder().status(cover_response.status());
-    *response_builder.headers_mut().unwrap() = cover_response.headers().clone();
-    let response = response_builder
-        .body(Body::from_stream(cover_response.bytes_stream()))
-        .unwrap();
-
-    Ok(response)
+    utils::proxy(&ctx.client, cover_url).await
 }

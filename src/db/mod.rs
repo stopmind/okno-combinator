@@ -1,8 +1,10 @@
+mod gamejams;
 mod submit;
 
 use sqlx::{PgPool, migrate::MigrateError};
 use thiserror::Error;
 
+pub use gamejams::*;
 pub use submit::*;
 
 #[derive(Debug, Error)]
