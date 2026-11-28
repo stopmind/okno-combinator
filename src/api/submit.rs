@@ -15,11 +15,11 @@ use url::Url;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SubmissionResponse {
+pub struct SubmissionResponse {
     #[serde(flatten)]
-    base: Submission,
-    tags: Vec<String>,
-    cover_image: String,
+    pub base: Submission,
+    pub tags: Vec<String>,
+    pub cover_image: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -32,12 +32,15 @@ pub struct SubmitRequest {
     tags: Vec<String>,
 }
 
-fn format_cover_image(id: i32) -> String {
+pub fn format_cover_image(id: i32) -> String {
     format!("https://oknoweb.ru/submissions/{id}/cover")
 }
 
 pub async fn get_submissions(State(ctx): State<ApiCtx>) -> ApiResult {
-    let submissions = ctx.db.get_all_submissions().await?;
+    let submissions = ctx
+        .db
+        .get_submissions_without_status(SubmissionStatus::Unverified)
+        .await?;
     let model: Vec<_> = stream::iter(submissions)
         .then(async |base| -> DbResult<SubmissionResponse> {
             Ok(SubmissionResponse {

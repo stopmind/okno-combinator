@@ -70,12 +70,69 @@ impl Database {
         ).map(|r| (r.id, r.date))
     }
 
+    pub async fn delete_submission(&self, sub_id: i32) -> DbResult<()> {
+        convert_result(
+            sqlx::query!("DELETE FROM submissions WHERE id = $1", sub_id)
+                .execute(&self.pool)
+                .await
+                .map(|_| ()),
+        )
+    }
+
+    pub async fn set_submission_status(
+        &self,
+        sub_id: i32,
+        status: SubmissionStatus,
+    ) -> DbResult<()> {
+        convert_result(
+            sqlx::query!(
+                "UPDATE submissions SET status = $1 WHERE id = $2",
+                status,
+                sub_id
+            )
+            .execute(&self.pool)
+            .await
+            .map(|_| ()),
+        )
+    }
+
     pub async fn add_submission_tags(&self, sub_id: i32, tags: &[i32]) -> DbResult<()> {
         convert_result(
             sqlx::query!("INSERT INTO submission_tag (submission_id, tag_id) SELECT $1, x FROM UNNEST($2::INT[]) x", sub_id, tags)
                 .execute(&self.pool)
                 .await
                 .map(|_| ())
+        )
+    }
+
+    pub async fn edit_submission(
+        &self,
+        sub_id: i32,
+        name: &str,
+        link: &str,
+        author: &str,
+        additional_info: Option<&str>,
+        date: NaiveDate,
+    ) -> DbResult<()> {
+        convert_result(
+            sqlx::query!("UPDATE submissions SET name = $2, link = $3, author = $4, additional_info = $5, date = $6 WHERE id = $1",
+                sub_id, name, link, author, additional_info, date
+            )
+                .execute(&self.pool)
+                .await
+                .map(|_| ())
+        )
+    }
+
+    pub async fn remove_all_submission_tags(&self, sub_id: i32) -> DbResult<()> {
+        convert_result(
+            sqlx::query!(
+                "DELETE FROM submission_tag WHERE submission_id = $1",
+                sub_id
+            )
+            .execute(&self.pool)
+            .await
+            .map(|_| ()),
         )
     }
 
@@ -123,6 +180,30 @@ impl Database {
             status
         )
         .map(|count| count.unwrap_or(0) as u32)
+    }
+
+    pub async fn get_submissions_with_status(
+        &self,
+        status: SubmissionStatus,
+    ) -> DbResult<Vec<Submission>> {
+        query_as_all!(
+            self,
+            Submission,
+            "SELECT * FROM submissions WHERE status = $1",
+            status
+        )
+    }
+
+    pub async fn get_submissions_without_status(
+        &self,
+        status: SubmissionStatus,
+    ) -> DbResult<Vec<Submission>> {
+        query_as_all!(
+            self,
+            Submission,
+            "SELECT * FROM submissions WHERE status != $1",
+            status
+        )
     }
 
     pub async fn get_submission_reviews(&self, sub_id: i32) -> DbResult<Vec<Review>> {
@@ -182,6 +263,32 @@ impl Database {
             TagCategory,
             "SELECT title, panel_only, \"order\" FROM tag_categories WHERE title = $1",
             title
+        )
+    }
+
+    pub async fn create_submission_review(
+        &self,
+        sub_id: i32,
+        author: &str,
+        link: &str,
+        rating: i32,
+    ) -> DbResult<i32> {
+        query_scalar_one!(
+            self,
+            "INSERT INTO reviews (submission_id, author, link, rating) VALUES ($1, $2, $3, $4) RETURNING id",
+            sub_id,
+            author,
+            link,
+            rating
+        )
+    }
+
+    pub async fn delete_submission_review(&self, review_id: i32) -> DbResult<()> {
+        convert_result(
+            sqlx::query!("DELETE FROM reviews WHERE id = $1", review_id)
+                .execute(&self.pool)
+                .await
+                .map(|_| ()),
         )
     }
 }

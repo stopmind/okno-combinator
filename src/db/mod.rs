@@ -1,11 +1,13 @@
 mod gamejams;
 mod submit;
+mod users;
 
 use sqlx::{PgPool, migrate::MigrateError};
 use thiserror::Error;
 
 pub use gamejams::*;
 pub use submit::*;
+pub use users::*;
 
 #[derive(Debug, Error)]
 #[error("failed to connect to database: {0}")]

@@ -9,6 +9,9 @@ log = "0.4.35"
 toml = "1.2.1"
 futures = "0.3.34"
 scraper = "0.29.0"
+base64 = "0.23.1"
+rand = "0.10.4"
+rand_chacha = "0.10.0"
 
 [dependencies.chrono]
 version = "0.4.45"
@@ -43,6 +46,10 @@ features = ["rt", "rt-multi-thread"]
 [dependencies.axum]
 version = "0.8.9"
 features = ["tokio", "json"]
+
+[dependencies.axum-extra]
+version = "0.12.6"
+features = ["cookie"]
 
 [dependencies.reqwest]
 version = "0.13.5"

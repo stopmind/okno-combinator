@@ -1,6 +1,7 @@
 use crate::{
     config::Config,
     db::{Database, DbError},
+    login::Login,
 };
 use axum::{
     Router,
@@ -21,11 +22,13 @@ use tokio::{
 use tower_http::cors::CorsLayer;
 
 mod gamejams;
+mod panel;
 mod submit;
 mod utils;
 
 struct ApiContext {
     db: Arc<Database>,
+    login: Arc<Login>,
     client: reqwest::Client,
 }
 
@@ -39,8 +42,14 @@ pub enum ApiError {
     ReqwestError(#[from] reqwest::Error),
     #[error("failed to parse url: {0}")]
     UrlParseError(#[from] url::ParseError),
-    #[error("transparent")]
+    #[error("{0}")]
     Other(String),
+}
+
+impl From<&str> for ApiError {
+    fn from(s: &str) -> Self {
+        ApiError::Other(s.to_string())
+    }
 }
 
 impl IntoResponse for ApiError {
@@ -65,6 +74,8 @@ async fn log_request(req: Request, next: Next) -> Response {
 #[rustfmt::skip]
 fn scheme(ctx: Arc<ApiContext>) -> Router {
     let router = Router::new()
+        .nest("/panel/", panel::scheme(ctx.clone()))
+
         .route("/submit", post(submit::submit))
         .route("/submissions", get(submit::get_submissions))
         .route("/submissions/verified/count", get(submit::get_verified_submissions_count))
@@ -83,6 +94,7 @@ fn scheme(ctx: Arc<ApiContext>) -> Router {
         .route("/community/content", get(gamejams::get_all_community_content))
         .route("/community/content/{id}", get(gamejams::get_community_content))
         .route("/community/content/{id}/cover", get(gamejams::get_community_content_cover))
+
         .with_state(ctx)
         .layer(CorsLayer::permissive());
 
@@ -100,9 +112,10 @@ fn open_unix_socket(path: &Path) -> io::Result<UnixListener> {
     UnixListener::bind(path)
 }
 
-pub async fn serve(db: Arc<Database>, config: &Config) {
+pub async fn serve(db: Arc<Database>, login: Arc<Login>, config: &Config) {
     let ctx = Arc::new(ApiContext {
         db,
+        login,
         client: reqwest::Client::new(),
     });
     let router = scheme(ctx);

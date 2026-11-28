@@ -3,8 +3,9 @@ extern crate core;
 pub mod api;
 mod config;
 mod db;
+mod login;
 
-use crate::{config::Config, db::Database};
+use crate::{config::Config, db::Database, login::Login};
 use log::LevelFilter;
 use std::sync::Arc;
 
@@ -14,8 +15,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = Config::load()?;
     let db = Arc::new(Database::connect(&config.database_url).await?);
+    let login = Arc::new(Login::new());
 
-    api::serve(db, &config).await;
+    tokio::spawn(login.clone().worker());
+
+    api::serve(db, login, &config).await;
 
     Ok(())
 }
